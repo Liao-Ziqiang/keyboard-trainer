@@ -1,5 +1,7 @@
 {
     "files": [
-        "topics_en"
+        "topics_en", 
+        "topics_de", 
+        "topics_jp"
     ]
 }
