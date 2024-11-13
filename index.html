@@ -4,9 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>打字训练</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP&display=swap" rel="stylesheet">
     <style>
         body {
-            font-family: 'Courier New', Courier, monospace;
+            font-family: 'Noto Sans JP', 'Arial', sans-serif;
             background-color: #f4f7f6;
             color: #333;
             margin: 0;
@@ -149,29 +150,17 @@
     const realTimeWindow = 10;
     let isTrainingActive = false;
 
-    // 基于时间戳的随机函数
-    function seededRandom(seed) {
-        const x = Math.sin(seed) * 10000;
-        return x - Math.floor(x);
-    }
-
     // 读取 JSON 文件中的文件名列表并更新下拉菜单
     async function loadFileList() {
         const response = await fetch('./files.json');
         const data = await response.json();
         const fileSelect = document.getElementById('file-select');
-        
-        // 使用当前时间作为随机种子，打乱文件顺序
-        const seed = Date.now();
-        const shuffledFiles = data.files.sort(() => seededRandom(seed) - 0.5);
-
-        shuffledFiles.forEach(file => {
+        data.files.forEach(file => {
             const option = document.createElement('option');
             option.value = file;
             option.textContent = file;
             fileSelect.appendChild(option);
         });
-        
         fileSelect.disabled = false;  // 启用下拉菜单
     }
 
@@ -188,8 +177,30 @@
         return text.split(/\n+/).filter(p => p.trim().length > 0);
     }
 
-    // 将段落按适合的行宽度分割
-    function splitParagraphIntoLines(paragraph, maxLineLength = 50) {
+    // 检查是否是字母字符
+    function isLetter(char) {
+        return /^[a-zA-ZÀ-ÿ]$/.test(char); // 包含德语和其他拉丁字母
+    }
+
+    // 检查是否是中文或日文字符
+    function isCJKCharacter(char) {
+        return /[\u4e00-\u9fff\u3040-\u30ff]/.test(char); // 中文和日文字符的范围
+    }
+
+    // 智能分行
+    function splitParagraphIntoLines(paragraph) {
+        const firstChar = paragraph.trim()[0];
+        if (isLetter(firstChar)) {
+            return splitByWords(paragraph, 75); // 英文/德语分行
+        } else if (isCJKCharacter(firstChar)) {
+            return splitByCharacters(paragraph, 36); // 中文/日文分行
+        } else {
+            return splitByCharacters(paragraph, 36); // 默认使用字符分行
+        }
+    }
+
+    // 英文/德语基于单词的分行
+    function splitByWords(paragraph, maxLineLength = 50) {
         const words = paragraph.split(' ');
         const lines = [];
         let currentLine = '';
@@ -202,6 +213,26 @@
                 currentLine = word + ' ';
             }
         });
+
+        if (currentLine.trim()) {
+            lines.push(currentLine.trim());
+        }
+
+        return lines;
+    }
+
+    // 中文/日文基于字符的分行
+    function splitByCharacters(paragraph, maxLineLength = 20) {
+        const lines = [];
+        let currentLine = '';
+
+        for (let i = 0; i < paragraph.length; i++) {
+            currentLine += paragraph[i];
+            if (currentLine.length >= maxLineLength || paragraph[i] === '\n') {
+                lines.push(currentLine.trim());
+                currentLine = '';
+            }
+        }
 
         if (currentLine.trim()) {
             lines.push(currentLine.trim());
@@ -244,6 +275,7 @@
 
         const input = e.target.value;
         const currentLine = originalParagraphs[currentLineIndex];
+        console.log(currentLine)
 
         for (let i = 0; i < input.length; i++) {
             if (input[i] !== currentLine[i]) {
@@ -313,7 +345,7 @@
             const randomIndex = Math.floor(Math.random() * paragraphs.length);
             const selectedParagraph = paragraphs[randomIndex];
 
-            // 将选择的段落按行宽拆分
+            // 智能分行
             originalParagraphs = splitParagraphIntoLines(selectedParagraph);
             currentLineIndex = 0;
             displayNewLine();
