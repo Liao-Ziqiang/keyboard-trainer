@@ -47,7 +47,6 @@
             border-color: #45a049;
         }
 
-        /* Updated select styles to match buttons */
         .header select {
             padding: 8px 16px;
             margin-right: 10px;
@@ -140,7 +139,7 @@
 
 <script>
     // 全局变量
-    let originalLines = [];
+    let originalParagraphs = []; // 存储段落
     let currentLineIndex = 0;
     let typedWords = 0;
     let totalWords = 0;
@@ -150,13 +149,23 @@
     const realTimeWindow = 10;
     let isTrainingActive = false;
 
+    // 基于时间戳的随机函数
+    function seededRandom(seed) {
+        const x = Math.sin(seed) * 10000;
+        return x - Math.floor(x);
+    }
+
     // 读取 JSON 文件中的文件名列表并更新下拉菜单
     async function loadFileList() {
         const response = await fetch('./files.json');
         const data = await response.json();
         const fileSelect = document.getElementById('file-select');
         
-        data.files.forEach(file => {
+        // 使用当前时间作为随机种子，打乱文件顺序
+        const seed = Date.now();
+        const shuffledFiles = data.files.sort(() => seededRandom(seed) - 0.5);
+
+        shuffledFiles.forEach(file => {
             const option = document.createElement('option');
             option.value = file;
             option.textContent = file;
@@ -170,12 +179,17 @@
     async function loadSelectedFile(fileName) {
         const response = await fetch(`./${fileName}.txt`);
         const text = await response.text();
-        const lines = splitIntoLines(text);
-        return lines;
+        const paragraphs = splitIntoParagraphs(text); // 先根据段落拆分
+        return paragraphs;
+    }
+
+    // 将文本按段落拆分（基于换行符 "\n"）
+    function splitIntoParagraphs(text) {
+        return text.split(/\n+/).filter(p => p.trim().length > 0);
     }
 
     // 将段落按适合的行宽度分割
-    function splitIntoLines(paragraph, maxLineLength = 50) {
+    function splitParagraphIntoLines(paragraph, maxLineLength = 50) {
         const words = paragraph.split(' ');
         const lines = [];
         let currentLine = '';
@@ -198,7 +212,7 @@
 
     // 显示新的一行
     function displayNewLine() {
-        const currentLine = originalLines[currentLineIndex];
+        const currentLine = originalParagraphs[currentLineIndex];
         document.getElementById('original-text').textContent = currentLine;
         document.getElementById('input-text').value = '';
         typedWords = 0;
@@ -229,7 +243,7 @@
         if (!isTrainingActive) return;
 
         const input = e.target.value;
-        const currentLine = originalLines[currentLineIndex];
+        const currentLine = originalParagraphs[currentLineIndex];
 
         for (let i = 0; i < input.length; i++) {
             if (input[i] !== currentLine[i]) {
@@ -258,11 +272,11 @@
 
         if (input === currentLine) {
             currentLineIndex++;
-            if (currentLineIndex < originalLines.length) {
+            if (currentLineIndex < originalParagraphs.length) {
                 displayNewLine();
             } else {
-                loadSelectedFile(document.getElementById('file-select').value).then(lines => {
-                    originalLines = lines;
+                loadSelectedFile(document.getElementById('file-select').value).then(paragraphs => {
+                    originalParagraphs = paragraphs;
                     currentLineIndex = 0;
                     displayNewLine();
                 });
@@ -294,8 +308,13 @@
         document.getElementById('end-btn').disabled = false;
 
         const fileName = document.getElementById('file-select').value;
-        loadSelectedFile(fileName).then(lines => {
-            originalLines = lines;
+        loadSelectedFile(fileName).then(paragraphs => {
+            // 随机选择一个段落
+            const randomIndex = Math.floor(Math.random() * paragraphs.length);
+            const selectedParagraph = paragraphs[randomIndex];
+
+            // 将选择的段落按行宽拆分
+            originalParagraphs = splitParagraphIntoLines(selectedParagraph);
             currentLineIndex = 0;
             displayNewLine();
         });
